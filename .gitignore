@@ -1,0 +1,9 @@
+#env
+.vscode
+.ipynb_checkpoints
+
+# cpp
+build
+
+#docs and stuff
+*.pdf

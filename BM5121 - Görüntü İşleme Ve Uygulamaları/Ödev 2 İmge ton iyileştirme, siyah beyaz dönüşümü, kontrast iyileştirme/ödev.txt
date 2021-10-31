@@ -1,0 +1,5 @@
+2.1) 8 bit bir resmi, TH=127 ile, ortalama alarak ve medyan alarak siyah beyaza çevirip gösterin. (bknz aşağıdaki şekil 2.1). 
+
+2.2) 8 bit bir resmi şekilde gösterildiği gibi orjinal, gamma 2 ve gamma 0.5 ile dönüşmüş versiyonlarını ve karşılık gelen histogramlarını gösteriniz. (bknz aşağıdaki şekil 2.2). 
+
+2.3) (BONUS artı 10 pian) Dar kontrastlı bir imgeyi derste anlatılan lineer dönüşümie kontrastını arttırın. Histogram ve imgelerin önceki ve sonraki hallerini gösterin (bknz aşağıdaki şekil 2.3). 
