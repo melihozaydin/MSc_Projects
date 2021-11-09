@@ -20,6 +20,7 @@ se = np.array([[0, 0, 1, 0, 0],\
                [1, 1, 1, 1, 1],\
                [0, 1, 1, 1, 0],\
                [0, 0, 1, 0, 0]])
+
 im_open = morphology.binary_closing(im_bin,se,iterations=2)
 labels_open, nbr_objects_open = measurements.label(im_open)
 im_list = np.concatenate((im_bin, im_open, labels_open), axis=1)
