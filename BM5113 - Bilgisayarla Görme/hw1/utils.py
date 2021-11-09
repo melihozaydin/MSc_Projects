@@ -84,3 +84,4 @@ def hist_equalization(img_array):
     # STEP 3: Transformation
     eq_img_array = np.take(transform_map, img_array)
     return eq_img_array
+

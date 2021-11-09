@@ -1,6 +1,7 @@
 #env
-.vscode
-.ipynb_checkpoints
+*.vscode
+*.ipynb_checkpoints
+*.pyc
 
 # cpp
 build
