@@ -2,7 +2,9 @@
 *.vscode
 *.ipynb_checkpoints
 *.pyc
+
 __pycache__
+
 
 # cpp
 build
