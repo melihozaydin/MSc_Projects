@@ -10,7 +10,7 @@
 build
 
 #docs and stuff
-*.pdf
+#*.pdf
 
 # image files
 images*

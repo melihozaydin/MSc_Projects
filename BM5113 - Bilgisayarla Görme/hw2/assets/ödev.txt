@@ -1,0 +1,6 @@
+conda install scikit-learn
+
+conda install -c conda-forge imutils
+
+paketlerini indirdikten sonra lecture 6 içerisinde de verilen aşağıdaki python scriptini datayı pratik bir şekilde okumak için kullanabilirsiniz. 
+Datanın bütününü eğitim ve test için kullanmayacağınızdan uygun değişiklikleri kodda yapmanız gerekmektedir.
