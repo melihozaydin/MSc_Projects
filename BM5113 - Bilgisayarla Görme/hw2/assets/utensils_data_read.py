@@ -6,6 +6,8 @@ from imutils import paths
 import numpy as np 
 import cv2 
 import time
+import os
+
 
 def preprocess_img(img):
     # apply opencv preprocessing
@@ -14,8 +16,7 @@ def preprocess_img(img):
     img = np.asarray(img, dtype=np.float)
     return img
 
-def load_data():
-    dataset = 'all'
+def load_data(dataset = 'all'):
     # Veri seti dizinindeki tüm görüntü dosyalarını yükle
     print("[INFO] veri yukleniyor...")
     # Görüntü dizinlerini oku
@@ -25,9 +26,9 @@ def load_data():
     # Tüm RAW görüntü türlerini oku
     for imagePath in imagePaths:
         # RAW dosya ismi ise görüntüyü okuyup data içerisine ekle
-        img_type = imagePath.split('\\')[-2]
+        img_type = imagePath.split(os.path.sep)[-2]
         # Dosya isminden etiketi belirle
-        label = imagePath.split('\\')[-3]
+        label = imagePath.split(os.path.sep)[-3]
         if img_type == 'RAW':
             # Görüntüyü oku ve önişle
             img = cv2.imread(imagePath)
