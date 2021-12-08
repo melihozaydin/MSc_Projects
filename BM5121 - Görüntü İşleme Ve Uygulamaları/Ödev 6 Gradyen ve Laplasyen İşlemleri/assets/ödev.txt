@@ -1,0 +1,7 @@
+Aşağıdaki resimlerde ödev detayları verilmiştir. 
+
+
+Ödev 6.1: Gx ve Gy x ve y yönündeki gradyen filtre sonuçlarıdır. Gx Gy çıktılarını derste anlatıldığı şekilde hesaplayınız. Sonuçları gösterirken görünürlük için seçtiğiniz bir normalizasyon işlemini kullanınız.
+
+
+Ödev 6.2: İki farklı şekilde keskinleştirme yapınız. Aynı zamanda laplasyen çıktısını da normalizasyon kullanarak gösteriniz. Sonuçları tartışınız.

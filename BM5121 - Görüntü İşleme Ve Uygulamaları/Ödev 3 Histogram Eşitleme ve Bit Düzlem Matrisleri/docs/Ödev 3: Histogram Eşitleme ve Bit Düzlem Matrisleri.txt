@@ -1,0 +1,7 @@
+Ödev 3.1 orjinal, karanlık, aydınlık, ve dar kontrastlı (aynı resmin farklı versiyonlarının) resimlere histogram eşitleme işleme işlemi uygulayın önceki ve sonraki resimleri histogramları ile gösterin, tartışın (aşağıda verilen örnek resimler gibi)
+
+
+Ödev 3.2 8 bit gri bir resmin 8 adet bit düzlemlerini aşağıdaki şekildeki gibi gösterin ve tartışın...
+
+
+Not: histogram eşitleme için kendi fonksiyonunuzu yazın...
