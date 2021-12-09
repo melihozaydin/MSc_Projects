@@ -2,9 +2,8 @@
 *.vscode
 *.ipynb_checkpoints
 *.pyc
-
-**/__pycache__/**
-
+**/__pycache__
+.env
 
 # cpp
 build
@@ -14,6 +13,5 @@ build
 
 # image files
 images*
-data*
-dataset*/**
+**/[Dd]ata*/*
 *.zip

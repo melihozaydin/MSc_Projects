@@ -140,10 +140,15 @@ def harrisCorner(inputArr):
 
 if __name__ == "__main__":
     import time    
+    import os
     img = cv2.imread("BM5113 - Bilgisayarla Görme/images/building2-2.png")
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    img = cv2.resize(img, (640, 640))
-    im = np.array(img, dtype=float)
-    start = time.time()
-    harrisCorner(im)
-    print("Time taken: ", time.time() - start)
+    print("cwd:", os.getcwd())
+    if img is not None:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img = cv2.resize(img, (640, 640))
+        im = np.array(img, dtype=float)
+        start = time.time()
+        harrisCorner(im)
+        print("Time taken: ", time.time() - start)
+    else:
+        print("Image not found")
