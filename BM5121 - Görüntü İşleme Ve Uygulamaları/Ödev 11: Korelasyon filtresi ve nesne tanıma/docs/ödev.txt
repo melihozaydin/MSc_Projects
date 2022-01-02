@@ -1,0 +1,11 @@
+Aşağıda verilen resimdeki açıklamalara göre ödevi yapınız. 
+
+
+Not: gerçek resimler ile çalışırken, korelasyon öncesinde f ve h matrislerini bir ortalama alıcı filtreden geçirip, çıktıları orjinal matrislerden çıkararak matris ortalamalarını sıfıra çekebilirsiniz. Bu işlem sonrasında korelasyon alırsanız yanlış korelasyon tepelerinden kurtulabilirsiniz. Derste yazılan olaslılık teorisindeki korelasyon formülünde hatırlarsanız matrisler ortalamadan çıkarılıyordu. 
+
+
+not1: Ortalama çıkarmaya örnek: mask=ones(3,3)/9; f = f - filter2(mask, f); 
+Dikkat edin burada yerel ortalama alınmıştır. Bu soruda korelasyon matrisinde doğru noktada yüksek bir tepe değer görmelisiniz... 
+
+
+not2: matris sınırlarında yüksek korelasyonlar elde edebilirsiniz. Onlar ihmal edilebilir.
