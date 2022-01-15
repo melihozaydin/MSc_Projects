@@ -1,274 +1,381 @@
-import tensorflow as tf
-import pydot
-import numpy as np
-from matplotlib import pyplot as plt
-import keras
-import keras.utils
-from keras.layers.core import Dropout, Lambda
-from keras import utils as np_utils
-from keras.utils.np_utils import to_categorical
-from keras.datasets import cifar10
-from keras.utils import np_utils 
-import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+from keras_applications import get_submodules_from_kwargs
+import keras.layers as layers
+import keras.backend as backend
+import keras.models as models
+import keras.utils as keras_utils
 
-from tqdm import tqdm
-from itertools import chain
-from skimage.io import imread, imshow, imread_collection, concatenate_images
-from skimage.transform import resize
-from skimage.morphology import label
+# from keras_applications.vgg16 import VGG16
+from keras.applications.vgg16 import VGG16
+from keras.applications.resnet import ResNet50, ResNet101, ResNet152
 
-from keras.models import Model, load_model
-from keras.layers import Input
-from keras.layers import BatchNormalization
-from keras.layers.core import Dropout, Lambda
-from keras.layers.convolutional import Conv2D, Conv2DTranspose
-from keras.layers.pooling import MaxPooling2D
-from keras.layers.merge import concatenate
-from keras.callbacks import EarlyStopping, ModelCheckpoint
-from keras import backend as K
-import sys
-import random
-import time
-import warnings
-from PIL import Image
-from keras.preprocessing import image
-import tensorflow_addons as tfa
-
-####################################################
-#### VERİ OKUMA YAPILDIĞI VARSAYILIR
-data1 = []  #normal  -  X_train        Eğitim için input datası
-data2 = []  #segmente  -Y_train        Eğitim için output datası
-tutucu = []
-
-#verilerin tip fönüşümü float32 türüne dönüştürülüyor
-data1 = np.array(data1, dtype="float32")
-data2 = np.array(data2, dtype="float32")
-
-#Eğitimdeki giriş datamız olacak görüntü boyutlarımız tutuluyor.
-img_width=data1.shape[1]
-img_height=data1.shape[2] 
-img_channels=1
-
-#tekrarlama işlemi ile datamız augmentation işlemi için 4 parametreli hale getiriliyor.
-print(data1.shape)  # (64, 224, 224)
-data1 = np.repeat(data1[..., np.newaxis], 1, -1)
-print(data1.shape)  # (64, 224, 224, 1)
-
-print(data2.shape)  # (64, 224, 224)
-data2 = np.repeat(data2[..., np.newaxis], 1, -1)
-print(data2.shape)  # (64, 224, 224, 1)
-
-#### TEST PREPROCESS
-data3 = []  #normal  -  X_Test
-data4 = []  #segmente  -Y_Test
-
-data3 = np.array(data3, dtype="float32")
-data4 = np.array(data4, dtype="float32")
-
-print(data3.shape)  # (64, 224, 224)
-data3 = np.repeat(data3[..., np.newaxis], 1, -1)
-print(data3.shape)  # (64, 224, 224, 1)
-
-print(data4.shape)  # (64, 224, 224)
-data4 = np.repeat(data4[..., np.newaxis], 1, -1)
-print(data4.shape)  # (64, 224, 224, 1)
-
-####################################################
-#### VERİ ZENGİNLEŞTİRME 
-# Veri zenginleştirme yapılacaksa Görüntü ve Maske Generator Objeleri Oluşturuluyor
-image_datagen = image.ImageDataGenerator(shear_range=0.5, rotation_range=50, zoom_range=0.2, width_shift_range=0.1, height_shift_range=0.1, fill_mode='nearest')
-mask_datagen = image.ImageDataGenerator(shear_range=0.5, rotation_range=50, zoom_range=0.2, width_shift_range=0.1, height_shift_range=0.1, fill_mode='nearest')
-
-BATCH_SIZE = 4     # Batch size data augmentation eklenince datagen.flow fonksiyonunda kullanılıyor
-seed = 16          # Sabit tohum belirleniyor
-
-X_train = data1    # Eğitim datanızı X_Train ile ifade ediyoruz
-Y_train = data2    # Segmentasyon datanızı Y_Train ile ifade ediyoruz
+# ---------------------------------------------------------------------
+#  Utility functions
+# ---------------------------------------------------------------------
+def freeze_model(model, **kwargs):
+    """Set all layers non trainable, excluding BatchNormalization layers"""
+    _, layers, _, _ = get_submodules_from_kwargs(kwargs)
+    for layer in model.layers:
+        if not isinstance(layer, layers.BatchNormalization):
+            layer.trainable = False
+    return
 
 
-image_datagen.fit(X_train, augment=True, seed=seed)
-mask_datagen.fit(Y_train, augment=True, seed=seed)
-
-x=image_datagen.flow(X_train,batch_size=BATCH_SIZE,shuffle=True, seed=seed)    #numpy X_train dizisi döndürülür.
-y=mask_datagen.flow(Y_train,batch_size=BATCH_SIZE,shuffle=True, seed=seed)
-
-
-# Görüntü ve maske oluşturucular için aynı tohumu bir araya getiriyoruz ki böylece birbirine uysunlar
-
-image_datagen.fit(X_train[:int(X_train.shape[0]*1)], augment=True, seed=seed)
-mask_datagen.fit(Y_train[:int(Y_train.shape[0]*1)], augment=True, seed=seed)
-
-x=image_datagen.flow(X_train[:int(X_train.shape[0]*1)],batch_size=BATCH_SIZE,shuffle=True, seed=seed)
-y=mask_datagen.flow(Y_train[:int(Y_train.shape[0]*1)],batch_size=BATCH_SIZE,shuffle=True, seed=seed)
-
-############## Doğrulama datası için Görüntü ve Maske Generator Objeleri Oluşturuluyor
-image_datagen_val = image.ImageDataGenerator()
-mask_datagen_val = image.ImageDataGenerator()
-
-image_datagen_val.fit(X_train[int(X_train.shape[0]*0.9):], augment=True, seed=seed)
-mask_datagen_val.fit(Y_train[int(Y_train.shape[0]*0.9):], augment=True, seed=seed)
-
-x_val=image_datagen_val.flow(X_train[int(X_train.shape[0]*0.9):],batch_size=BATCH_SIZE,shuffle=True, seed=seed)
-y_val=mask_datagen_val.flow(Y_train[int(Y_train.shape[0]*0.9):],batch_size=BATCH_SIZE,shuffle=True, seed=seed)
-
-imshow(x.next()[0].astype(np.uint8))
-plt.show()
-imshow(np.squeeze(y.next()[0].astype(np.uint8)))
-plt.show()
-
-train_generator = zip(x, y)
-val_generator = zip(x_val, y_val)
-
-####################################################
-#### UNET BÖLÜTLEME MODELİ OLUŞTURMA 
-
-inputs=tf.keras.layers.Input((img_width,img_height,1))   #input layer
-#s=tf.keras.Layers.Lambda(lambda x : x/255.)(inputs)
-filterNum = 8 
-c1=tf.keras.layers.Conv2D(filterNum,(3,3),activation="relu",kernel_initializer="he_normal",padding="same")(inputs)
-c1 = tf.keras.layers.BatchNormalization()(c1)
-c1=tf.keras.layers.Dropout(0.1)(c1)
-c1=tf.keras.layers.Conv2D(filterNum,(3,3),activation="relu",kernel_initializer="he_normal",padding="same")(c1) 
-c1 = tf.keras.layers.BatchNormalization()(c1)
-p1=tf.keras.layers.MaxPooling2D((2,2))(c1) #Avf pooling
-
-c2 = tf.keras.layers.Conv2D(filterNum*2, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(p1)
-c2 = tf.keras.layers.BatchNormalization()(c2)
-#c2 = tf.keras.layers.Dropout(0.1)(c2)
-c2 = tf.keras.layers.Conv2D(filterNum*2, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c2)
-c2 = tf.keras.layers.BatchNormalization()(c2)
-p2 = tf.keras.layers.MaxPooling2D((2, 2))(c2)
- 
-c3 = tf.keras.layers.Conv2D(filterNum*4, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(p2)
-c3 = tf.keras.layers.BatchNormalization()(c3)
-#c3 = tf.keras.layers.Dropout(0.2)(c3)
-c3 = tf.keras.layers.Conv2D(filterNum*4, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c3)
-c3 = tf.keras.layers.BatchNormalization()(c3)
-p3 = tf.keras.layers.MaxPooling2D((2, 2))(c3)
- 
-c4 = tf.keras.layers.Conv2D(filterNum*8, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(p3)
-c4 = tf.keras.layers.BatchNormalization()(c4)
-c4 = tf.keras.layers.Dropout(0.2)(c4)
-c4 = tf.keras.layers.Conv2D(filterNum*8, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c4)
-c4 = tf.keras.layers.BatchNormalization()(c4)
-p4 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(c4)
- 
-c5 = tf.keras.layers.Conv2D(filterNum*16, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(p4)
-c5 = tf.keras.layers.BatchNormalization()(c5)
-c5 = tf.keras.layers.Dropout(0.3)(c5)
-c5 = tf.keras.layers.Conv2D(filterNum*16, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c5)
-c5 = tf.keras.layers.BatchNormalization()(c5)
-p5 = tf.keras.layers.MaxPooling2D(pool_size=(2, 2))(c5)
-
-c6 = tf.keras.layers.Conv2D(filterNum*32, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(p5)
-c6 = tf.keras.layers.BatchNormalization()(c6)
-#c6 = tf.keras.layers.Dropout(0.3)(c6)
-c6 = tf.keras.layers.Conv2D(filterNum*32, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c6)
-c6 = tf.keras.layers.BatchNormalization()(c6)
- 
-#Expansive path 
-u7 = tf.keras.layers.Conv2DTranspose(filterNum*16, (2, 2), strides=(2, 2), padding='same')(c6)
-u7 = tf.keras.layers.concatenate([u7, c5])
-c7 = tf.keras.layers.Conv2D(filterNum*16, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(u7)
-c7 = tf.keras.layers.BatchNormalization()(c7)
-#c7 = tf.keras.layers.Dropout(0.2)(c7)
-c7 = tf.keras.layers.Conv2D(filterNum*16, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c7)
-c7 = tf.keras.layers.BatchNormalization()(c7)
-
-u8 = tf.keras.layers.Conv2DTranspose(filterNum*8, (2, 2), strides=(2, 2), padding='same')(c7)
-u8 = tf.keras.layers.concatenate([u8, c4])
-c8 = tf.keras.layers.Conv2D(filterNum*8, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(u8)
-c8 = tf.keras.layers.BatchNormalization()(c8)
-c8 = tf.keras.layers.Dropout(0.2)(c8)
-c8 = tf.keras.layers.Conv2D(filterNum*8, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c8)
-c8 = tf.keras.layers.BatchNormalization()(c8)
- 
-u9 = tf.keras.layers.Conv2DTranspose(filterNum*4, (2, 2), strides=(2, 2), padding='same')(c8)
-u9 = tf.keras.layers.concatenate([u9, c3])
-c9 = tf.keras.layers.Conv2D(filterNum*4, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(u9)
-c9 = tf.keras.layers.BatchNormalization()(c9)
-c9 = tf.keras.layers.Dropout(0.2)(c9)
-c9 = tf.keras.layers.Conv2D(filterNum*4, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c9)
-c9 = tf.keras.layers.BatchNormalization()(c9)
- 
-u10 = tf.keras.layers.Conv2DTranspose(filterNum*2, (2, 2), strides=(2, 2), padding='same')(c9)
-u10 = tf.keras.layers.concatenate([u10, c2])
-c10 = tf.keras.layers.Conv2D(filterNum*2, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(u10)
-c10 = tf.keras.layers.BatchNormalization()(c10)
-#c10 = tf.keras.layers.Dropout(0.1)(c10)
-c10 = tf.keras.layers.Conv2D(filterNum*2, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c10)
-c10 = tf.keras.layers.BatchNormalization()(c10)
- 
-u11 = tf.keras.layers.Conv2DTranspose(filterNum, (2, 2), strides=(2, 2), padding='same')(c10)
-u11 = tf.keras.layers.concatenate([u11, c1], axis=3)
-c11 = tf.keras.layers.Conv2D(filterNum, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(u11)
-c11 = tf.keras.layers.BatchNormalization()(c11)
-c11 = tf.keras.layers.Dropout(0.1)(c11)
-c11 = tf.keras.layers.Conv2D(filterNum, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same')(c11)
-c11 = tf.keras.layers.BatchNormalization()(c11)
- 
-outputs = tf.keras.layers.Conv2D(1, (1, 1), activation='sigmoid')(c11)  #çıktı bir kanal olacak 
-model = tf.keras.Model(inputs=[inputs], outputs=[outputs])
-#tf.keras.optimizers.ADAM(lr = 0.003)
-
-####################################################
-#### UNET BÖLÜTLEME MODELİ EĞİTME 
-
-lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-    initial_learning_rate=1e-2,
-    decay_steps=10000,
-    decay_rate=0.9)
+def get_submodules():
+    return {
+        "backend": backend,
+        "models": models,
+        "layers": layers,
+        "utils": keras_utils,
+    }
 
 
-model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=lr_schedule), loss="binary_crossentropy",  metrics=[tf.keras.metrics.MeanIoU(num_classes=2)] ) #callbacks
-model.summary()
-
-results  = model.fit( train_generator , steps_per_epoch =len(x)//BATCH_SIZE, epochs=20)
-
-model.save("model1")
+# ---------------------------------------------------------------------
+#  Blocks
+# ---------------------------------------------------------------------
 
 
-"""
-model.fit_generator(train_generator, validation_data=val_generator, validation_steps=10, steps_per_epoch=50,
-                            epochs=10)
-                            
-                                 
-"""
+def Conv3x3BnReLU(filters, use_batchnorm, name=None):
+    kwargs = get_submodules()
 
-""" 
-model.fit(x=data1, 
-          y=data2,
-          batch_size=4,
-          epochs=10)  
+    def wrapper(input_tensor):
+        return Conv2dBn(
+            filters,
+            kernel_size=3,
+            activation="relu",
+            kernel_initializer="he_uniform",
+            padding="same",
+            use_batchnorm=use_batchnorm,
+            name=name,
+            **kwargs,
+        )(input_tensor)
 
-"""
-####################################################
-#### UNET BÖLÜTLEME MODELİ DEĞERLENDİRME
- 
-model = keras.models.load_model("model1")
+    return wrapper
 
-#Eğitilmiş olan modelimiz için tahmin datası oluşturuluyor
-BS = 4
-start = time.time()
-print("[INFO] model degerlendiriliyor...")
-tahminler = model.predict(data3, batch_size=BS)  #her data1 görüntüsüne karşılık bir tahmin dizisi içermektedir.( nummpy dizisi içerisinde)
-print(time.time() - start)
 
-# Tüm tahmin datası, gerçek test dataları ile İoU metriği üzerinde karşılaştırılmalı olarak test edilir.
-for x in range(len(data4)):
-    data = data4[x]
-    tahminlerN = tahminler[x]
-    tahminlerN = np.where(tahminlerN>=0.8, 1, 0)
-    for i in range(640):
-        for j in range(640):
-            if ( np.logical_and( data[i][j]==1 , tahminlerN[i][j]== 1) ):
-                k = k+1
-            if( np.logical_and( data[i][j]==1 , tahminlerN[i][j]== 0) ):
-                l = l+1
-            if( np.logical_and( data[i][j]==0 , tahminlerN[i][j]== 1) ):
-                l = l+1    
-            
-iou = k/(k+l) 
+def DecoderUpsamplingX2Block(filters, stage, use_batchnorm=False):
+    up_name = "decoder_stage{}_upsampling".format(stage)
+    conv1_name = "decoder_stage{}a".format(stage)
+    conv2_name = "decoder_stage{}b".format(stage)
+    concat_name = "decoder_stage{}_concat".format(stage)
 
-print(iou)
+    concat_axis = 3 if backend.image_data_format() == "channels_last" else 1
+
+    def wrapper(input_tensor, skip=None):
+        x = layers.UpSampling2D(size=2, name=up_name)(input_tensor)
+
+        if skip is not None:
+            x = layers.Concatenate(axis=concat_axis, name=concat_name)([x, skip])
+
+        x = Conv3x3BnReLU(filters, use_batchnorm, name=conv1_name)(x)
+        x = Conv3x3BnReLU(filters, use_batchnorm, name=conv2_name)(x)
+
+        return x
+
+    return wrapper
+
+
+def DecoderTransposeX2Block(filters, stage, use_batchnorm=False):
+    transp_name = "decoder_stage{}a_transpose".format(stage)
+    bn_name = "decoder_stage{}a_bn".format(stage)
+    relu_name = "decoder_stage{}a_relu".format(stage)
+    conv_block_name = "decoder_stage{}b".format(stage)
+    concat_name = "decoder_stage{}_concat".format(stage)
+
+    concat_axis = bn_axis = 3 if backend.image_data_format() == "channels_last" else 1
+
+    def layer(input_tensor, skip=None):
+
+        x = layers.Conv2DTranspose(
+            filters,
+            kernel_size=(4, 4),
+            strides=(2, 2),
+            padding="same",
+            name=transp_name,
+            use_bias=not use_batchnorm,
+        )(input_tensor)
+
+        if use_batchnorm:
+            x = layers.BatchNormalization(axis=bn_axis, name=bn_name)(x)
+
+        x = layers.Activation("relu", name=relu_name)(x)
+
+        if skip is not None:
+            x = layers.Concatenate(axis=concat_axis, name=concat_name)([x, skip])
+
+        x = Conv3x3BnReLU(filters, use_batchnorm, name=conv_block_name)(x)
+
+        return x
+
+    return layer
+
+
+def Conv2dBn(
+    filters,
+    kernel_size,
+    strides=(1, 1),
+    padding="valid",
+    data_format=None,
+    dilation_rate=(1, 1),
+    activation=None,
+    kernel_initializer="glorot_uniform",
+    bias_initializer="zeros",
+    kernel_regularizer=None,
+    bias_regularizer=None,
+    activity_regularizer=None,
+    kernel_constraint=None,
+    bias_constraint=None,
+    use_batchnorm=False,
+    **kwargs
+):
+    """Extension of Conv2D layer with batchnorm"""
+
+    conv_name, act_name, bn_name = None, None, None
+    block_name = kwargs.pop("name", None)
+    backend, layers, models, keras_utils = get_submodules_from_kwargs(kwargs)
+
+    if block_name is not None:
+        conv_name = block_name + "_conv"
+
+    if block_name is not None and activation is not None:
+        act_str = activation.__name__ if callable(activation) else str(activation)
+        act_name = block_name + "_" + act_str
+
+    if block_name is not None and use_batchnorm:
+        bn_name = block_name + "_bn"
+
+    bn_axis = 3 if backend.image_data_format() == "channels_last" else 1
+
+    def wrapper(input_tensor):
+
+        x = layers.Conv2D(
+            filters=filters,
+            kernel_size=kernel_size,
+            strides=strides,
+            padding=padding,
+            data_format=data_format,
+            dilation_rate=dilation_rate,
+            activation=None,
+            use_bias=not (use_batchnorm),
+            kernel_initializer=kernel_initializer,
+            bias_initializer=bias_initializer,
+            kernel_regularizer=kernel_regularizer,
+            bias_regularizer=bias_regularizer,
+            activity_regularizer=activity_regularizer,
+            kernel_constraint=kernel_constraint,
+            bias_constraint=bias_constraint,
+            name=conv_name,
+        )(input_tensor)
+
+        if use_batchnorm:
+            x = layers.BatchNormalization(axis=bn_axis, name=bn_name)(x)
+
+        if activation:
+            x = layers.Activation(activation, name=act_name)(x)
+
+        return x
+
+    return wrapper
+
+
+def build_unet(
+    backbone,
+    decoder_block,
+    skip_connection_layers,
+    decoder_filters=(256, 128, 64, 32, 16),
+    n_upsample_blocks=5,
+    classes=1,
+    activation="sigmoid",
+    use_batchnorm=True,
+):
+    input_ = backbone.input
+    x = backbone.output
+
+    # extract skip connections
+    skips = [
+        backbone.get_layer(name=i).output
+        if isinstance(i, str)
+        else backbone.get_layer(index=i).output
+        for i in skip_connection_layers
+    ]
+
+    # add center block if previous operation was maxpooling (for vgg models)
+    if isinstance(backbone.layers[-1], layers.MaxPooling2D):
+        x = Conv3x3BnReLU(512, use_batchnorm, name="center_block1")(x)
+        x = Conv3x3BnReLU(512, use_batchnorm, name="center_block2")(x)
+
+    # building decoder blocks
+    for i in range(n_upsample_blocks):
+
+        if i < len(skips):
+            skip = skips[i]
+        else:
+            skip = None
+
+        x = decoder_block(decoder_filters[i], stage=i, use_batchnorm=use_batchnorm)(
+            x, skip
+        )
+
+    # model head (define number of output classes)
+    x = layers.Conv2D(
+        filters=classes,
+        kernel_size=(3, 3),
+        padding="same",
+        use_bias=True,
+        kernel_initializer="glorot_uniform",
+        name="final_conv",
+    )(x)
+
+    x = layers.Activation(activation, name=activation)(x)
+
+    # create keras model instance
+    model = models.Model(input_, x)
+
+    return model
+
+
+def Unet(
+    backbone_name="vgg16",
+    input_shape=(None, None, 3),
+    classes=1,
+    activation="sigmoid",
+    weights=None,
+    encoder_weights="imagenet",
+    encoder_freeze=False,
+    encoder_features="default",
+    decoder_block_type="upsampling",
+    decoder_filters=(256, 128, 64, 32, 16),
+    decoder_use_batchnorm=True,
+    **kwargs
+):
+    """Unet_ is a fully convolution neural network for image semantic segmentation
+
+    Args:
+        backbone_name: name of classification model (without last dense layers) used as feature
+            extractor to build segmentation model.
+        input_shape: shape of input data/image ``(H, W, C)``, in general
+            case you do not need to set ``H`` and ``W`` shapes, just pass ``(None, None, C)`` to make your model be
+            able to process images af any size, but ``H`` and ``W`` of input images should be divisible by factor ``32``.
+        classes: a number of classes for output (output shape - ``(h, w, classes)``).
+        activation: name of one of ``keras.activations`` for last model layer
+            (e.g. ``sigmoid``, ``softmax``, ``linear``).
+        weights: optional, path to model weights.
+        encoder_weights: one of ``None`` (random initialization), ``imagenet`` (pre-training on ImageNet).
+        encoder_freeze: if ``True`` set all layers of encoder (backbone model) as non-trainable.
+        encoder_features: a list of layer numbers or names starting from top of the model.
+            Each of these layers will be concatenated with corresponding decoder block. If ``default`` is used
+            layer names are taken from ``DEFAULT_SKIP_CONNECTIONS``.
+        decoder_block_type: one of blocks with following layers structure:
+
+            - `upsampling`:  ``UpSampling2D`` -> ``Conv2D`` -> ``Conv2D``
+            - `transpose`:   ``Transpose2D`` -> ``Conv2D``
+
+        decoder_filters: list of numbers of ``Conv2D`` layer filters in decoder blocks
+        decoder_use_batchnorm: if ``True``, ``BatchNormalisation`` layer between ``Conv2D`` and ``Activation`` layers
+            is used.
+
+    Returns:
+        ``keras.models.Model``: **Unet**
+
+    .. _Unet:
+        https://arxiv.org/pdf/1505.04597
+
+    """
+
+    # global backend, layers, models, keras_utils
+    # backend, layers, models, keras_utils = get_submodules_from_kwargs(kwargs)
+
+    if decoder_block_type == "upsampling":
+        decoder_block = DecoderUpsamplingX2Block
+    elif decoder_block_type == "transpose":
+        decoder_block = DecoderTransposeX2Block
+    else:
+        raise ValueError(
+            'Decoder block type should be in ("upsampling", "transpose"). '
+            "Got: {}".format(decoder_block_type)
+        )
+
+    feature_layers = {
+        # List of layers to take features from backbone in the following order:
+        # (x16, x8, x4, x2, x1) - `x4` mean that features has 4 times less spatial
+        # resolution (Height x Width) than input image.
+        # VGG
+        "vgg16": (
+            "block5_conv3",
+            "block4_conv3",
+            "block3_conv3",
+            "block2_conv2",
+            "block1_conv2",
+        ),
+        "vgg19": (
+            "block5_conv4",
+            "block4_conv4",
+            "block3_conv4",
+            "block2_conv2",
+            "block1_conv2",
+        ),
+        # ResNets
+        "resnet50": (
+            "stage4_unit1_relu1",
+            "stage3_unit1_relu1",
+            "stage2_unit1_relu1",
+            "relu0",
+        ),
+        "resnet101": (
+            "stage4_unit1_relu1",
+            "stage3_unit1_relu1",
+            "stage2_unit1_relu1",
+            "relu0",
+        ),
+        "resnet152": (
+            "stage4_unit1_relu1",
+            "stage3_unit1_relu1",
+            "stage2_unit1_relu1",
+            "relu0",
+        ),
+    }
+
+    if backbone_name == "vgg16":
+        backbone = VGG16(
+            weights=encoder_weights, include_top=False, input_shape=input_shape
+        )
+    elif backbone_name == "ResNet50":
+        backbone = ResNet50(
+            weights=encoder_weights, include_top=False, input_shape=input_shape
+        )
+    elif backbone_name == "ResNet101":
+        backbone = ResNet101(
+            weights=encoder_weights, include_top=False, input_shape=input_shape
+        )
+    elif backbone_name == "ResNet152":
+        backbone = ResNet152(
+            weights=encoder_weights, include_top=False, input_shape=input_shape
+        )
+    else:
+        raise ValueError(
+            'Backbone name should be in ("vgg16", "ResNet50", "ResNet101", "ResNet152"). '
+            "Got: {}".format(backbone_name)
+        )
+
+    if encoder_features == "default":
+        encoder_features = feature_layers[backbone_name][:4]
+
+    model = build_unet(
+        backbone=backbone,
+        decoder_block=decoder_block,
+        skip_connection_layers=encoder_features,
+        decoder_filters=decoder_filters,
+        classes=classes,
+        activation=activation,
+        n_upsample_blocks=len(decoder_filters),
+        use_batchnorm=decoder_use_batchnorm,
+    )
+
+    # lock encoder weights for fine-tuning
+    if encoder_freeze:
+        freeze_model(backbone, **kwargs)
+
+    # loading model weights
+    if weights is not None:
+        model.load_weights(weights)
+
+    return model
