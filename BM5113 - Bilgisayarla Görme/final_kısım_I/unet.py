@@ -4,7 +4,6 @@ import keras.backend as backend
 import keras.models as models
 import keras.utils as keras_utils
 
-# from keras_applications.vgg16 import VGG16
 from keras.applications.vgg16 import VGG16
 from keras.applications.resnet import ResNet50, ResNet101, ResNet152
 
