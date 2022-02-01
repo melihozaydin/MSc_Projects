@@ -20,25 +20,26 @@ import sklearn.metrics as sm
 
 
 def get_transfer_model(input_shape=(224, 224, 3), classes=2):
-
     model = Unet(input_shape=input_shape, classes=classes)
     model.summary()
     return model
 
 
 def preprocess_img(img, size=(224, 224)):
-    # apply opencv preprocessing
-    # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    # img = cv2.resize(img, size)
-    img = np.asarray(img, dtype=np.uint8)[:224, :224, :]
+    
+    if isinstance(size, int):
+        size = (size, size)
+
+    img = cv2.resize(img, size).astype(np.uint8)
+
     return img
 
 
 def preprocess_mask(mask, size=(224, 224)):
-    # apply opencv preprocessing
-    # mask = cv2.cvtColor(mask, cv2.COLOR_BGR2GRAY)
-    # mask = cv2.resize(mask, size)
-    mask = np.asarray(mask, dtype=np.uint8)[:224, :224]
+    if isinstance(size, int):
+        size = (size, size)
+    mask = mask.astype(bool).astype(np.uint8) * 255
+    mask = cv2.resize(mask, size).astype(np.uint8)
     return mask
 
 
@@ -46,7 +47,7 @@ def load_data(
     dataset_path="./data/all",
     mode="segmentation",
     test_size=0.25,
-    multi_label=False,
+    multi_class=False,
     num_classes=None,
 ):
 
@@ -56,7 +57,11 @@ def load_data(
     # Veri seti dizinindeki tüm görüntü dosyalarını yükle
     print("[INFO] veri yukleniyor...")
 
-    classes = sorted(os.listdir(dataset_path))[:num_classes]
+    # TODO: add background class
+    classes = ["background"] + sorted(os.listdir(dataset_path))[:num_classes] 
+    
+    print(f"[INFO] classes:{classes}")
+
     class_idxs = [i for i in range(len(classes))]
 
     # [(imagePath, maskPath, className), ...]
@@ -98,14 +103,14 @@ def load_data(
         mask = np.array(Image.open(maskPath).convert("L"))
         mask = preprocess_mask(mask)
 
-        if multi_label:
-            multi_label_mask = np.zeros(
+        if multi_class:
+            multi_class_mask = np.zeros(
                 (mask.shape[0], mask.shape[1], len(classes)), dtype=np.uint8
             )
 
-            multi_label_mask[:, :, classes.index(className)] = mask
+            multi_class_mask[:, :, classes.index(className)] = mask
 
-            mask = multi_label_mask
+            mask = multi_class_mask
             masks.append(mask)
         else:
             masks.append(mask)
