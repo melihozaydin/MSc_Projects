@@ -15,7 +15,7 @@ import cv2
 import os
 
 from PIL import Image
-from Unet import Unet
+from unet import Unet
 import sklearn.metrics as sm
 
 
