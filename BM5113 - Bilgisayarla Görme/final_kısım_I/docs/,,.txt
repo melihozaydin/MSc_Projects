@@ -1,2 +1,0 @@
-unet modeli sadece referans olarak verilmiş olup uygulamada kullanılmayacaktır. 
-Sadece transfer learning dosyasında kendi tasarlayacağınız bir bölütleme modeli uygulanacaktır.

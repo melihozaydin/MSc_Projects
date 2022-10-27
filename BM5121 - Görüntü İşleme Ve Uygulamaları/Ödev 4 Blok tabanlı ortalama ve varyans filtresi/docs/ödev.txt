@@ -1,1 +1,0 @@
-Aşağıdaki fotoğrafta verildiği üzere farklı blok pencereleri için ortalama ve varyans filtre çıktılarını bulunuz ve sonuçları tartışınız. İşlem yapılacak başlangıç imgesi 512x512 piksel ve 8 bit olmalıdır. Blok penceresinin orjin koordinatın blok ortası olarak alınmalıdır.
