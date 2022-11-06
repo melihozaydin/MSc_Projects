@@ -4,18 +4,25 @@ import numpy as np
 
 def show_img(img_array, title="Image", cmap=None):
     
-    plt.imshow(img_array, cmap=cmap)
+    if (cmap is None) and ((len(img_array.shape) < 2) or (np.array(img_array.shape) == 1).any()):
+        img_array = np.squeeze(img_array)
+        cmap = "gray"
+
     plt.title(title, fontsize=12)
-    plt.suptitle(f"\nshape: {img_array.shape}, range: {np.min(img_array)} - {np.max(img_array)}\nmean: {np.mean(img_array):.2f}, std: {np.std(img_array):.2f}", 
+    plt.suptitle(
+            f"shape: {img_array.shape}, dtype: {img_array.dtype}\n" 
+            f"range: {np.min(img_array)} - {np.max(img_array)}\n"
+            f"mean: {np.mean(img_array):.2f}, std: {np.std(img_array):.2f}", 
             fontsize=8)
+
+    plt.imshow(img_array, cmap=cmap)
     plt.tight_layout()
     plt.show()
 
-def show_hist(img, channel_order="RGB", title="Histogram", ret=False, bins=256, cumulative=False):
+def show_hist(img, channel_order="RGB", title="Histogram", show_image=True, ret=False, bins=256, cumulative=False):
     # plot histograms for all 3 channels
     #print("len(img.shape):",len(img.shape))
     # https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.hist.html
-    show_img(img, title="Image")
     
     # GRAYSCALE
     if len(img.shape) < 3:
@@ -27,6 +34,8 @@ def show_hist(img, channel_order="RGB", title="Histogram", ret=False, bins=256, 
         if channel_order == "BGR":
             # BGR
             color_names = reversed(color_names)
+    if show_image:
+        show_img(img, title="Image")
 
     if not cumulative:
         fig, axes = plt.subplots(1, img.shape[2], figsize=(15,5))
