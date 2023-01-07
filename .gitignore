@@ -4,6 +4,7 @@
 *.pyc
 **/__pycache__/
 .env
+.venv
 
 # cpp
 build
