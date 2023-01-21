@@ -81,7 +81,7 @@ from skimage.feature import peak_local_max
 from skimage.filters import difference_of_gaussians
 
 
-def find_poi(image, sigma_min, sigma_max, threshold, visualize=False):
+def find_poi(image, sigma_min=0.5, sigma_max=1, threshold=0.05, visualize=False):
     # Create the scale space by applying DoG filtering
     scale_space = difference_of_gaussians(image, sigma_min, sigma_max)
     # Find local maxima
