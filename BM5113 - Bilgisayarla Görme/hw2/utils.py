@@ -75,6 +75,53 @@ def img_read(src, ret_bgr=False, ret_gray=False, show=True):
     
     return img
 
+from skimage.feature import hessian_matrix, hessian_matrix_eigvals
+import numpy as np
+from skimage.feature import peak_local_max
+from skimage.filters import difference_of_gaussians
+
+
+def find_poi(image, sigma_min=0.5, sigma_max=1, threshold=0.05, visualize=False):
+    # Create the scale space by applying DoG filtering
+    scale_space = difference_of_gaussians(image, sigma_min, sigma_max)
+    # Find local maxima
+    local_max = peak_local_max(scale_space, threshold_rel=threshold, min_distance=1, indices=True)
+    # Find local minima by reversing the sign of the scale space
+    scale_space = -scale_space
+    local_min = peak_local_max(scale_space, threshold_rel=threshold, min_distance=1, indices=True)
+
+    hessian = np.transpose(np.array(hessian_matrix(image, sigma=sigma_max, order='rc')), (1,2,0))
+    hessian_th = hessian.max() * threshold
+    print(hessian.shape)
+    print("hessian_th: ", hessian_th)
+
+    # Use the Hessian matrix to clean up the points
+    final_points = []
+    """
+    for point in np.concatenate((local_max, local_min)):
+        eig_val, eig_vec = np.linalg.eig(hessian[point[0]][point[1]])
+        if eig_val[0] < threshold and eig_val[1] < threshold:
+            continue
+        # Append to the points of interest
+        points_of_interest.append(point)
+    """
+
+    print("np.concatenate((local_max, local_min)).shape", np.concatenate((local_max, local_min)).shape)
+    for point in np.concatenate((local_max, local_min)):
+        if (hessian[point[0]][point[1]] > hessian_th).all():
+            final_points.append(point)
+
+    final_points = np.array(final_points)
+    print("final points_of_interest .shape: \n", final_points.shape)
+
+    if visualize:
+        # Plot the image
+        plt.imshow(image, cmap='gray')
+        # Plot the points of interest on top of the image
+        plt.plot(final_points[:, 1], final_points[:, 0], 'ro', alpha=0.1)
+        plt.show()
+
+    return final_points
 
 
 # Global Histogram Equalization
